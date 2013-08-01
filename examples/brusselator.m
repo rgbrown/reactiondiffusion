@@ -5,14 +5,14 @@
 %% Initialise the problem
 % First specify the problem domain. Just the boundaries, not the internal
 % mesh points.
-xlim = [0 1];
+xlim = [-1 1];
 
 %%
 % Now specify the parameters. We'll make b our spatially varying parameter.
 % The best way to do this is to make it a function of x using anonymous
 % functions
 a = 1;
-b = @(x) 1 + 3 * x;
+b = @(x) 1.5 * x + 2.5;
 
 %%
 % Now we'll define the kinetics. The Brusselator is simple enough that you
@@ -29,7 +29,8 @@ f = @(~, x, y) ...
 %%
 % A couple of extra things
 varnames = {'\phi', '\psi'}; % only need these to make graphs look nice
-h = 5e-2;                    % spatial step
+%h = 5e-2;                    % spatial step
+n = 200;
 diffusion = {@(x) 1e-2, 0};  % initially we'll do phi-diffusion
 
 %%
@@ -37,7 +38,7 @@ diffusion = {@(x) 1e-2, 0};  % initially we'll do phi-diffusion
 y0 = {1, @(x) b(x) + 0.2 * sin(4*pi*x)}; 
 %% 
 % Now we'll create our reaction-diffusion system
-sim = ReactionDiffusion('kinetics_fcn', f, 'diffusion', diffusion, 'h', h, ...
+sim = Rdsolve('kinetics_fcn', f, 'diffusion', diffusion, 'n', n, ...
     'xlim', xlim, 'y0', y0, 'varnames', varnames, 'Tspan', [0 10]);
 
 %% Time to simulate the system

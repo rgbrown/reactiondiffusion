@@ -8,6 +8,7 @@ classdef ReactionDiffusion < handle
         kinetics_fcn
         Tspan
         solver
+        method
         animation_speedup
         animation_framerate
         varnames
@@ -18,6 +19,11 @@ classdef ReactionDiffusion < handle
         D
         odeopts
         odesol
+            % compute discretisation etc for fd method
+            
+        end
+    end
+    methods (Access = protected)
         m
         n
         JPattern
@@ -160,14 +166,29 @@ classdef ReactionDiffusion < handle
             ni = numel(idx);
             hy = zeros(ni, 1);
             ha = zeros(ni, 1);
-            for i = 1:numel(idx)
+            for i = 1:numel(i % Now construct the diffusion operator block by block
+            Dop = cell(m, 1);
+            for i = 1:m
+                if ~isnumeric(obj.diffusion{i})
+                    a = obj.diffusion{i}(xa);
+                else
+                    a = obj.diffusion{i};
+                end
+                Dop{i} = diffop(n, obj.h, a, obj.boundary);
+            end
+            % Compute permutation matrix to get localised ordering
+            I = 1:(m*n);
+            J = reshape(I, n, m)';
+            J = J(:);
+            Q = sparse(I, J, 1., m*n, m*n);
+            D = Q * blkdiag(Dop{:}) * Q.';dx)
                 subplot(ni, 1, i)
                 hy(i) = plot(obj.x, Y(idx(i):obj.m:end, 1));
                 ha(i) = gca;
                 yy = Y(idx(i):obj.m:end, :);
                 set(ha(i), 'ylim', [min(yy(:)), max(yy(:))]);
                 if (i == 1)
-                    ht = title(sprintf('t = %.2f', T(1)));
+                    ht = title(sprintf('t = %.2f', T(1)));ReactionDiffusion_old
                 end
                 if ~isempty(obj.varnames)
                     ylabel(obj.varnames{i});
@@ -329,11 +350,12 @@ end
 function params = parse_inputs(varargin)
 p = inputParser();
 p.addParamValue('h', 1e-2);
-p.addParamValue('xlim', [0 1]);
+p.addParamValue('xlim', [-1 1]);
 p.addParamValue('diffusion', []);
 p.addParamValue('y0', []);
 p.addParamValue('Tspan', [0 10]);
 p.addParamValue('boundary', 'noflux');
+p.addParamValue('method', 'fd'); % fd or spectral
 p.addParamValue('solver', @ode15s);
 p.addParamValue('kinetics_fcn', [])
 p.addParamValue('animation_speedup', 1);
@@ -390,3 +412,4 @@ switch bc
         error('Unknown boundary type  use ''noflux'' or ''periodic''')
 end
 end
+
