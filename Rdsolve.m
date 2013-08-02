@@ -40,6 +40,7 @@ classdef Rdsolve < handle
             obj.spectral.D2 = obj.spectral.D1^2;
             obj.spectral.BC = -obj.spectral.D1([1 N+1], [1 N+1]) \ ...
                 obj.spectral.D1([1 N+1], 2:N);
+            obj.spectral.
             
         end
         function init_fd(obj)
