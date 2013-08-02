@@ -14,6 +14,7 @@ classdef Rdsolve < handle
     end
     properties (SetAccess = private)
         % Workspace properties
+        m
         fd
         spectral
         odeopts
@@ -37,35 +38,66 @@ classdef Rdsolve < handle
             % compute discretisation etc for spectral method
             N = obj.n - 1;
             [obj.spectral.D1, obj.spectral.x] = cheb(N);
+            obj.spectral.x = obj.spectral.x(:).';
             obj.spectral.D2 = obj.spectral.D1^2;
             obj.spectral.BC = -obj.spectral.D1([1 N+1], [1 N+1]) \ ...
                 obj.spectral.D1([1 N+1], 2:N);
-            obj.spectral.
+            obj.m = numel(obj.diffusion);
             
+            Dop = cell(obj.m, 1);
+            is_diff = false(obj.m, 1);
+            for i = 1:obj.m
+                if ~isnumeric(obj.diffusion{i})
+                    a = obj.diffusion{i}(obj.spectral.x);
+                    Dop{i} = obj.spectral.D1 * diag(a) * obj.spectral.D1;
+                    is_diff(i) = true;
+                else
+                    a = obj.diffusion{i};
+                    Dop{i} = a * obj.spectral.D2;
+                    if any(a)
+                        is_diff(i) = true;
+                    end                        
+                end
+            end
+            obj.spectral.i_diff = find(is_diff);
+            I = 1:(obj.m * obj.n);
+            J = reshape(I, obj.n, obj.m)';
+            J = J(:);
+            Q = sparse(I, J, 1., obj.m*obj.n, ...
+                obj.m*obj.n);
+            obj.spectral.D = Q * blkdiag(Dop{:}) * Q.';
+            
+            obj.spectral.i_map = setdiff(1:obj.m*obj.n, ...
+                [obj.spectral.i_diff; 
+                obj.m*(obj.n-1) + obj.spectral.i_diff]);
+            obj.spectral.ntot = obj.m * obj.n;
+            obj.spectral.y = zeros(obj.spectral.ntot, 1);
+            
+  
         end
         function init_fd(obj)
             % compute discretisation etc for fd method
             obj.fd.x  = linspace(obj.xlim(1), obj.xlim(2), obj.n);
             obj.fd.h  = (obj.xlim(2) - obj.xlim(1)) / (obj.n - 1);
             obj.fd.xa = [obj.xlim(1) - obj.fd.h/2, obj.fd.x + obj.fd.h/2];
-            obj.fd.m     = numel(obj.diffusion);
-            obj.fd.n     = numel(obj.fd.x);
+            obj.m     = numel(obj.diffusion);
+            obj.n     = numel(obj.fd.x);
             
             % Now construct the diffusion operator block by block
-            Dop = cell(obj.fd.m, 1);
-            for i = 1:obj.fd.m
+            Dop = cell(obj.m, 1);
+            for i = 1:obj.m
                 if ~isnumeric(obj.diffusion{i})
                     a = obj.diffusion{i}(obj.fd.xa); % if it is a function handle
                 else
                     a = obj.diffusion{i};
                 end
-                Dop{i} = diffop(obj.fd.n, obj.fd.h, a, obj.boundary);
+                Dop{i} = diffop(obj.n, obj.fd.h, a, obj.boundary);
             end
             % Compute permutation matrix to get localised ordering
-            I = 1:(obj.fd.m*obj.fd.n);
-            J = reshape(I, obj.fd.n, obj.fd.m)';
+            I = 1:(obj.m*obj.n);
+            J = reshape(I, obj.n, obj.m)';
             J = J(:);
-            Q = sparse(I, J, 1., obj.fd.m*obj.fd.n, obj.fd.m*obj.fd.n);
+            Q = sparse(I, J, 1., obj.m*obj.n, obj.m*obj.n);
             obj.fd.D = Q * blkdiag(Dop{:}) * Q.';           
         end
         
@@ -85,14 +117,13 @@ classdef Rdsolve < handle
                     obj.init_fd();
                     obj.JPattern = compute_jpattern(obj);
                     obj.odeopts = odeset('JPattern', obj.JPattern);
-                    y0v = obj.y0vals_fd();
                     f = @(t, y) obj.rhs_fd(t, y);
                 case 'spectral'
                     obj.init_spectral();
                     obj.odeopts = odeset();
-                    y0v = obj.y0vals_spectral();
                     f = @(t, y) obj.rhs_spectral(t, y);
             end
+            y0v = obj.y0vals();
             fprintf('done\n')
             tic
             fprintf('\tSolving ode system ... ')
@@ -114,30 +145,51 @@ classdef Rdsolve < handle
             end
             obj.diffusion = val;
         end
+        function y = unpack_spectral(obj, yreduced)
+            y = zeros(obj.spectral.ntot, 1);
+            y(obj.spectral.i_map) = yreduced;
+            for i = 1:numel(obj.spectral.i_diff)
+                ii = obj.spectral.i_diff(i);
+                
+                y([ii; ii + obj.m*(obj.n-1)]) = ...
+                    obj.spectral.BC * y(obj.m*(1:(obj.n-2)) + ii);
+            end            
+        end
     end
     methods (Access = protected)
-        function dy = rhs_spectral(obj, t, y)
-            
+        function dy = rhs_spectral(obj, t, yreduced)
+            y = obj.unpack_spectral(yreduced);
+            dy = obj.kinetics_fcn(t, obj.spectral.x, ...
+                reshape(y, obj.m, obj.n));
+            dy = dy(:) + obj.spectral.D * y(:);
+            dy = dy(obj.spectral.i_map);            
         end
         function dy = rhs_fd(obj, t, y)
-            dy = obj.kinetics_fcn(t, obj.fd.x, reshape(y, obj.fd.m, obj.fd.n));
+            dy = obj.kinetics_fcn(t, obj.fd.x, reshape(y, obj.m, obj.n));
             dy = dy(:) + obj.fd.D * y(:);            
         end
-        function y0 = y0vals_fd(obj)
-            y0 = zeros(obj.fd.m, obj.fd.n);
-            for i = 1:obj.fd.m
+        function y0 = y0vals(obj)
+            y0 = zeros(obj.m, obj.n);
+            for i = 1:obj.m
                 if isnumeric(obj.y0{i})
                     y0(i,:) = obj.y0{i};
                 else
-                    y0(i,:) = obj.y0{i}(obj.fd.x);
+                    switch obj.method
+                        case 'fd'
+                            y0(i,:) = obj.y0{i}(obj.fd.x);
+                        case 'spectral'
+                            y0(i,:) = obj.y0{i}(obj.spectral.x);
+                    end
                 end
             end
             y0 = y0(:);            
+            if isequal(obj.method, 'spectral')
+                y0 = y0(obj.spectral.i_map);
+            end
         end
-        function y0 = y0vals_spectral(obj)
-        end
+       
         function J = compute_jpattern(obj)
-            C = repmat({spones(ones(obj.fd.m))}, obj.fd.n, 1);
+            C = repmat({spones(ones(obj.m))}, obj.n, 1);
             J = spones(spones(obj.fd.D) + blkdiag(C{:}));
         end
         function check_parameters(obj)

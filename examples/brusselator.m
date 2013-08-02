@@ -31,7 +31,7 @@ f = @(~, x, y) ...
 varnames = {'\phi', '\psi'}; % only need these to make graphs look nice
 %h = 5e-2;                    % spatial step
 n = 200;
-diffusion = {@(x) 1e-2, 0};  % initially we'll do phi-diffusion
+diffusion = {@(x) 1e-2 * exp(-x.^2), 0};  % initially we'll do phi-diffusion
 
 %%
 % define some initial conditions as functions of x. They can also be scalars
@@ -39,7 +39,8 @@ y0 = {1, @(x) b(x) + 0.2 * sin(4*pi*x)};
 %% 
 % Now we'll create our reaction-diffusion system
 sim = Rdsolve('kinetics_fcn', f, 'diffusion', diffusion, 'n', n, ...
-    'xlim', xlim, 'y0', y0, 'varnames', varnames, 'Tspan', [0 10]);
+    'xlim', xlim, 'y0', y0, 'varnames', varnames, 'Tspan', [0 10], ...
+    'method', 'spectral');
 
 %% Time to simulate the system
 sim.simulate()
