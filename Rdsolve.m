@@ -1,11 +1,11 @@
 classdef Rdsolve < handle
     properties
         % Setable properties. These define everything we need to know
-        xlim         % 
+        xlim         %
         n            % Number of spatial points
         diffusion    % diffusion coefficients. Some may be zero
         y0
-        kinetics_fcn  
+        kinetics_fcn
         Tspan
         solver
         method
@@ -19,7 +19,9 @@ classdef Rdsolve < handle
         spectral
         odeopts
         JPattern
-        odesol
+        odestats
+        Tsol
+        Ysol
     end
     
     methods
@@ -56,7 +58,7 @@ classdef Rdsolve < handle
                     Dop{i} = a * obj.spectral.D2;
                     if any(a)
                         is_diff(i) = true;
-                    end                        
+                    end
                 end
             end
             obj.spectral.i_diff = find(is_diff);
@@ -68,12 +70,12 @@ classdef Rdsolve < handle
             obj.spectral.D = Q * blkdiag(Dop{:}) * Q.';
             
             obj.spectral.i_map = setdiff(1:obj.m*obj.n, ...
-                [obj.spectral.i_diff; 
+                [obj.spectral.i_diff;
                 obj.m*(obj.n-1) + obj.spectral.i_diff]);
             obj.spectral.ntot = obj.m * obj.n;
             obj.spectral.y = zeros(obj.spectral.ntot, 1);
             
-  
+            
         end
         function init_fd(obj)
             % compute discretisation etc for fd method
@@ -98,9 +100,8 @@ classdef Rdsolve < handle
             J = reshape(I, obj.n, obj.m)';
             J = J(:);
             Q = sparse(I, J, 1., obj.m*obj.n, obj.m*obj.n);
-            obj.fd.D = Q * blkdiag(Dop{:}) * Q.';           
+            obj.fd.D = Q * blkdiag(Dop{:}) * Q.';
         end
-        
         function simulate(obj)
             %SIMULATE    Perform a simulation
             %    Syntax:
@@ -127,7 +128,8 @@ classdef Rdsolve < handle
             fprintf('done\n')
             tic
             fprintf('\tSolving ode system ... ')
-            obj.odesol = obj.solver(f, obj.Tspan, y0v, obj.odeopts);
+            [obj.Tsol, obj.Ysol, obj.odestats] = ...
+                obj.solver(f, obj.Tspan, y0v, obj.odeopts);
             fprintf('done (elapsed time %.2f seconds)\n', toc)
         end
         
@@ -146,27 +148,75 @@ classdef Rdsolve < handle
             obj.diffusion = val;
         end
         function y = unpack_spectral(obj, yreduced)
-            y = zeros(obj.spectral.ntot, 1);
-            y(obj.spectral.i_map) = yreduced;
+            ncols = size(yreduced, 2);
+            y = zeros(obj.spectral.ntot, ncols);
+            y(obj.spectral.i_map, :) = yreduced;
             for i = 1:numel(obj.spectral.i_diff)
                 ii = obj.spectral.i_diff(i);
                 
-                y([ii; ii + obj.m*(obj.n-1)]) = ...
-                    obj.spectral.BC * y(obj.m*(1:(obj.n-2)) + ii);
-            end            
+                y([ii; ii + obj.m*(obj.n-1)], :) = ...
+                    obj.spectral.BC * y(obj.m*(1:(obj.n-2)) + ii, :);
+            end
         end
+        
+        function varargout = image(obj, idx)
+            %IMAGE   Display an image of one variable of the simulation
+            %
+            %    sim.image(1) would display an image of the first variable
+            %        with time on the x-axis, and space on the y-axis.
+            %
+            %    The time resolution is chosen to be in proportion with the
+            %    spatial resolution. The ability to change this may be
+            %    added in future
+            %
+            T = obj.Tsol;
+            if isequal(obj.method, 'spectral')
+                Y = obj.unpack_spectral(obj.Ysol.');
+                npts = 4000;
+                x = linspace(obj.spectral.x(1), obj.spectral.x(end), npts);
+                Y = spline(obj.spectral.x, Y(idx:obj.m:(obj.m*obj.n), :).', x).';
+            else
+                Y = obj.Ysol.';
+                Y = Y(idx:obj.m:(obj.m*obj.n), :);
+                x = obj.fd.x;
+            end
+            
+            hI = imagesc(T, x, Y);
+            colormap(hot(16384));
+            axis tight
+            xlabel('t')
+            if ~isempty(obj.varnames)
+                title(obj.varnames{idx})
+            else
+                title(sprintf('y_%d', idx))
+            end
+            ylabel('x')
+            set(gca, 'ydir', 'normal')
+            switch nargout
+                case 0
+                    varargout = {};
+                case 1
+                    varargout = {hI};
+                case 2
+                    varargout = {hI, Y};
+            end
+                    
+        end
+        
     end
+    
+    
     methods (Access = protected)
         function dy = rhs_spectral(obj, t, yreduced)
             y = obj.unpack_spectral(yreduced);
             dy = obj.kinetics_fcn(t, obj.spectral.x, ...
                 reshape(y, obj.m, obj.n));
             dy = dy(:) + obj.spectral.D * y(:);
-            dy = dy(obj.spectral.i_map);            
+            dy = dy(obj.spectral.i_map);
         end
         function dy = rhs_fd(obj, t, y)
             dy = obj.kinetics_fcn(t, obj.fd.x, reshape(y, obj.m, obj.n));
-            dy = dy(:) + obj.fd.D * y(:);            
+            dy = dy(:) + obj.fd.D * y(:);
         end
         function y0 = y0vals(obj)
             y0 = zeros(obj.m, obj.n);
@@ -182,12 +232,12 @@ classdef Rdsolve < handle
                     end
                 end
             end
-            y0 = y0(:);            
+            y0 = y0(:);
             if isequal(obj.method, 'spectral')
                 y0 = y0(obj.spectral.i_map);
             end
         end
-       
+        
         function J = compute_jpattern(obj)
             C = repmat({spones(ones(obj.m))}, obj.n, 1);
             J = spones(spones(obj.fd.D) + blkdiag(C{:}));
@@ -205,7 +255,7 @@ classdef Rdsolve < handle
             end
         end
     end
-        
+    
     
     
 end
@@ -227,7 +277,7 @@ p.parse(varargin{:});
 params = p.Results;
 end
 function D = diffop(N, h, a, varargin)
-%DIFFOP Create the square finite difference diffusion operator 
+%DIFFOP Create the square finite difference diffusion operator
 % (including the h^2) for a single block
 %
 %    D = DIFFOP(N, h, a)  Create a diffusion operator for a grid of N
