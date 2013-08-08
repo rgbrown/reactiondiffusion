@@ -12,7 +12,7 @@ xlim = [-1 1];
 % The best way to do this is to make it a function of x using anonymous
 % functions
 a = 1;
-b = @(x) 1.5 * x + 2.5;
+b = @(x) 2-x;
 
 %%
 % Now we'll define the kinetics. The Brusselator is simple enough that you
@@ -31,7 +31,8 @@ f = @(~, x, y) ...
 varnames = {'\phi', '\psi'}; % only need these to make graphs look nice
 %h = 5e-2;                    % spatial step
 n = 200;
-diffusion = {@(x) 1e-2 * exp(-x.^2), 0};  % initially we'll do phi-diffusion
+%diffusion = {@(x) 1e-2 * exp(-x.^2), 0};  % initially we'll do phi-diffusion
+diffusion = {0, 1e-3};
 
 %%
 % define some initial conditions as functions of x. They can also be scalars

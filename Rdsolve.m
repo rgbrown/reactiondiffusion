@@ -11,13 +11,13 @@ classdef Rdsolve < handle
         method
         varnames
         boundary
+        odeopts
     end
     properties (SetAccess = private)
         % Workspace properties
         m
         fd
         spectral
-        odeopts
         JPattern
         odestats
         Tsol
@@ -117,11 +117,10 @@ classdef Rdsolve < handle
                 case 'fd'
                     obj.init_fd();
                     obj.JPattern = compute_jpattern(obj);
-                    obj.odeopts = odeset('JPattern', obj.JPattern);
+                    obj.odeopts = odeset(obj.odeopts, 'JPattern', obj.JPattern);
                     f = @(t, y) obj.rhs_fd(t, y);
                 case 'spectral'
                     obj.init_spectral();
-                    obj.odeopts = odeset();
                     f = @(t, y) obj.rhs_spectral(t, y);
             end
             y0v = obj.y0vals();
@@ -172,7 +171,7 @@ classdef Rdsolve < handle
             T = obj.Tsol;
             if isequal(obj.method, 'spectral')
                 Y = obj.unpack_spectral(obj.Ysol.');
-                npts = 4000;
+                npts = round(3/4 * numel(obj.Tspan));
                 x = linspace(obj.spectral.x(1), obj.spectral.x(end), npts);
                 Y = spline(obj.spectral.x, Y(idx:obj.m:(obj.m*obj.n), :).', x).';
             else
@@ -270,6 +269,7 @@ p.addParamValue('Tspan', [0 10]);
 p.addParamValue('boundary', 'noflux');
 p.addParamValue('method', 'fd'); % fd or spectral
 p.addParamValue('solver', @ode15s);
+p.addParamValue('odeopts', odeset());
 p.addParamValue('kinetics_fcn', [])
 p.addParamValue('varnames', {});
 p.parse(varargin{:});
