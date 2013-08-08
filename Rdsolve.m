@@ -2,7 +2,7 @@ classdef Rdsolve < handle
     properties
         % Setable properties. These define everything we need to know
         xlim         %
-        n            % Number of spatial points
+        n            % Spatial discretisation size
         diffusion    % diffusion coefficients. Some may be zero
         y0
         kinetics_fcn
@@ -12,6 +12,8 @@ classdef Rdsolve < handle
         varnames
         boundary
         odeopts
+        image_nx
+        image_nt
     end
     properties (SetAccess = private)
         % Workspace properties
@@ -19,7 +21,7 @@ classdef Rdsolve < handle
         fd
         spectral
         JPattern
-        odestats
+        odesol
         Tsol
         Ysol
     end
@@ -127,8 +129,15 @@ classdef Rdsolve < handle
             fprintf('done\n')
             tic
             fprintf('\tSolving ode system ... ')
-            [obj.Tsol, obj.Ysol, obj.odestats] = ...
-                obj.solver(f, obj.Tspan, y0v, obj.odeopts);
+            if numel(obj.Tspan) == 2 
+                obj.odesol = obj.solver(f, obj.Tspan, y0v, obj.odeopts);
+                obj.Tsol = obj.odesol.x;
+                obj.Ysol = obj.odesol.y.';
+            else
+                [obj.Tsol, obj.Ysol] = ...
+                    obj.solver(f, obj.Tspan, y0v, obj.odeopts);
+                obj.odesol = [];
+            end
             fprintf('done (elapsed time %.2f seconds)\n', toc)
         end
         
@@ -157,6 +166,66 @@ classdef Rdsolve < handle
                     obj.spectral.BC * y(obj.m*(1:(obj.n-2)) + ii, :);
             end
         end
+        function Y = soln(obj, idx, t, x)
+            %SOLN Extract solution at specified time and spatial locations
+            if isempty(t)
+                t = obj.Tsol;
+            end
+            if isempty(x)
+                switch obj.method
+                    case 'fd'
+                        x = obj.fd.x;
+                    case 'spectral'
+                        x = obj.spectral.x;
+                end
+            end
+            % Bounds checking
+            if any(t < obj.Tspan(1)) || any(t > obj.Tspan(end))
+                error('Rdsolve:t_out_of_range', ...
+                    'specified t values outside of simulation range');
+            end
+            if any(x < obj.xlim(1)) || any(x > obj.xlim(end))
+                error('Rdsolve:x_out_of_range', ...
+                    'specified x values outside of simulation range');
+            end
+            
+            % Get solutions at node points at each time value
+            if ~isempty(obj.odesol)
+                Y = deval(obj.odesol, t);
+            else
+                % Check to see if the times are actually simulation values
+                [tf, loc] = ismember(t, obj.Tspan);
+                % If not, interpolate
+                if all(tf)
+                    Y = obj.Ysol(loc, :).';
+                else
+                    Y = obj.Ysol.';
+                    Y = spline(obj.Tsol, Y, t);
+                end
+            end
+            
+            % Fill out boundary conditions if using spectral method
+            if isequal(obj.method, 'spectral')
+                Y = obj.unpack_spectral(Y);
+            end
+            % Extract the variable out that we need
+            Y = Y(idx:obj.m:end, :);
+            
+            % Now spatial interpolation
+            switch obj.method
+                case 'fd'
+                    xs = obj.fd.x;
+                case 'spectral'
+                    xs = obj.spectral.x;
+            end
+            [tf, loc] = ismember(x, xs);
+            if all(tf)
+                Y = Y(loc, :);
+            else
+                Y = spline(xs, Y.', x).';
+            end       
+            
+        end
         
         function varargout = image(obj, idx)
             %IMAGE   Display an image of one variable of the simulation
@@ -168,18 +237,36 @@ classdef Rdsolve < handle
             %    spatial resolution. The ability to change this may be
             %    added in future
             %
-            T = obj.Tsol;
-            if isequal(obj.method, 'spectral')
-                Y = obj.unpack_spectral(obj.Ysol.');
-                npts = round(3/4 * numel(obj.Tspan));
-                x = linspace(obj.spectral.x(1), obj.spectral.x(end), npts);
-                Y = spline(obj.spectral.x, Y(idx:obj.m:(obj.m*obj.n), :).', x).';
-            else
-                Y = obj.Ysol.';
-                Y = Y(idx:obj.m:(obj.m*obj.n), :);
-                x = obj.fd.x;
-            end
             
+            % Work out the times
+            if numel(obj.Tspan) == 2
+                nt = obj.image_nt;
+                T = linspace(obj.Tspan(1), obj.Tspan(2), nt);
+            else
+                nt = numel(obj.Tspan);
+                warning('Rdsolve:ignore_nt', ...
+                    'Ignoring specified image_nt value, using number of elements in Tspan instead');
+                T = obj.Tspan;
+            end
+            % Fill in missing entries if we're using spectral method
+            if isequal(obj.method, 'spectral')
+                if isempty(obj.image_nx)
+                    nx = round(3/4 * nt);
+                else
+                    nx = obj.image_nx;
+                end
+                x = linspace(obj.xlim(1), obj.xlim(end), nx);
+            else
+                if isempty(obj.image_nx)
+                    nx = numel(obj.fd.x);
+                    x = obj.fd.x;
+                else
+                    nx = obj.image_nx;
+                    x = linspace(obj.xlim(1), obj.xlim(end), nx);
+                end
+            end
+            Y = obj.soln(idx, T, x);
+                        
             hI = imagesc(T, x, Y);
             colormap(hot(16384));
             axis tight
@@ -272,6 +359,8 @@ p.addParamValue('solver', @ode15s);
 p.addParamValue('odeopts', odeset());
 p.addParamValue('kinetics_fcn', [])
 p.addParamValue('varnames', {});
+p.addParamValue('image_nx', []);
+p.addParamValue('image_nt', 2000);
 p.parse(varargin{:});
 
 params = p.Results;
