@@ -157,6 +157,14 @@ classdef ReactionDiffusion < handle
             end
             obj.diffusion = val;
         end
+        function set.method(obj, val)
+            try
+                assert(ismember(lower(val), {'spectral', 'fd'}));
+            catch
+                error('Invalid discretisation method specified. Must be ''spectral'' or ''fd''');
+            end
+            obj.method = val;
+        end
         function y = unpack_spectral(obj, yreduced)
             ncols = size(yreduced, 2);
             y = zeros(obj.spectral.ntot, ncols);
