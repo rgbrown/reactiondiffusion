@@ -7,12 +7,11 @@ x = linspace(0, 1);
 
 plot(x, d(x))
 %%
-sim = ReactionDiffusion('kinetics_fcn', f, 'diffusion', {d})
+sim = ReactionDiffusion('kinetics_fcn', f, 'diffusion', {d}, 'method', 'spectral', 'n', 1000)
 sim.y0 = {y0}
 sim.animation_speedup = 2;
 sim.simulate()
 sim.animate()
-pause
 sim.diffusion{1} = 1e-3;
 sim.simulate
 sim.animate() 

@@ -11,18 +11,22 @@ v1fun = @(x) 5e-3 * (1 + tanh(x/0.25)) - 29.6e-3;
 diffusion = [1e-4, 0, 0];
 
 % Initialise the Reaction Diffusion simulation
-sim = Rdsolve('kinetics_fcn', fn, 'xlim', xlim', ...
-    'diffusion', diffusion, 'varnames', varnames, ...
-    'method', 'spectral', 'n', 100, 'y0', y0);
+sim = ReactionDiffusion('kinetics_fcn', fn, ...
+    'xlim', xlim', ...
+    'diffusion', diffusion, ...
+    'varnames', varnames, ...
+    'method', 'spectral', ...
+    'n', 200, ...
+    'y0', y0);
 
-sim.Tspan = [0 10];
+sim.Tspan = linspace(0, 40, 1000);
 sim.simulate()
-sim.image(2)
+sim.image(1)
 %%
 % Plot the time variation of membrane potential at the middle of the domain
-[T, Y] = sim.export();
-[~, idx] = min(abs(sim.x - 0.5));
-plot(T, Y{1}(idx, :))
+t = linspace(sim.Tspan(1), sim.Tspan(2), 1000);
+y = sim.soln(1, t, 0);
+plot(t, y)
 
 %%
 % Now try decreasing the diffusion
@@ -31,11 +35,11 @@ sim.simulate()
 sim.image(1)
 %%
 % Now plot the membrane potential at the middle of the grid over time
-[T, Y] = sim.export();
-[~, idx] = min(abs(sim.x - 0.5));
-plot(T, Y{1}(idx, :))
+y = sim.soln(1, t, 0);
+plot(t, y);
 %%
 % And let's see an animation, first fast
+sim.image_nx = 1000;
 sim.animation_speedup = 5;
 sim.animate()
 %%
