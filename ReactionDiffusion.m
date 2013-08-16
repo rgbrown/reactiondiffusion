@@ -40,72 +40,7 @@ classdef ReactionDiffusion < handle
             end
             
         end
-        function init_spectral(obj)
-            % compute discretisation etc for spectral method
-            N = obj.n - 1;
-            [obj.spectral.D1, obj.spectral.x] = cheb(N);
-            obj.spectral.x = obj.spectral.x(:).';
-            obj.spectral.D2 = obj.spectral.D1^2;
-            obj.spectral.BC = -obj.spectral.D1([1 N+1], [1 N+1]) \ ...
-                obj.spectral.D1([1 N+1], 2:N);
-            obj.m = numel(obj.diffusion);
-            
-            Dop = cell(obj.m, 1);
-            is_diff = false(obj.m, 1);
-            for i = 1:obj.m
-                if ~isnumeric(obj.diffusion{i})
-                    a = obj.diffusion{i}(obj.spectral.x);
-                    Dop{i} = obj.spectral.D1 * diag(a) * obj.spectral.D1;
-                    is_diff(i) = true;
-                else
-                    a = obj.diffusion{i};
-                    Dop{i} = a * obj.spectral.D2;
-                    if any(a)
-                        is_diff(i) = true;
-                    end
-                end
-            end
-            obj.spectral.i_diff = find(is_diff);
-            I = 1:(obj.m * obj.n);
-            J = reshape(I, obj.n, obj.m)';
-            J = J(:);
-            Q = sparse(I, J, 1., obj.m*obj.n, ...
-                obj.m*obj.n);
-            obj.spectral.D = Q * blkdiag(Dop{:}) * Q.';
-            
-            obj.spectral.i_map = setdiff(1:obj.m*obj.n, ...
-                [obj.spectral.i_diff;
-                obj.m*(obj.n-1) + obj.spectral.i_diff]);
-            obj.spectral.ntot = obj.m * obj.n;
-            obj.spectral.y = zeros(obj.spectral.ntot, 1);
-            
-            
-        end
-        function init_fd(obj)
-            % compute discretisation etc for fd method
-            obj.fd.x  = linspace(obj.xlim(1), obj.xlim(2), obj.n);
-            obj.fd.h  = (obj.xlim(2) - obj.xlim(1)) / (obj.n - 1);
-            obj.fd.xa = [obj.xlim(1) - obj.fd.h/2, obj.fd.x + obj.fd.h/2];
-            obj.m     = numel(obj.diffusion);
-            obj.n     = numel(obj.fd.x);
-            
-            % Now construct the diffusion operator block by block
-            Dop = cell(obj.m, 1);
-            for i = 1:obj.m
-                if ~isnumeric(obj.diffusion{i})
-                    a = obj.diffusion{i}(obj.fd.xa); % if it is a function handle
-                else
-                    a = obj.diffusion{i};
-                end
-                Dop{i} = diffop(obj.n, obj.fd.h, a, obj.boundary);
-            end
-            % Compute permutation matrix to get localised ordering
-            I = 1:(obj.m*obj.n);
-            J = reshape(I, obj.n, obj.m)';
-            J = J(:);
-            Q = sparse(I, J, 1., obj.m*obj.n, obj.m*obj.n);
-            obj.fd.D = Q * blkdiag(Dop{:}) * Q.';
-        end
+
         function simulate(obj)
             %SIMULATE    Perform a simulation
             %    Syntax:
@@ -131,7 +66,7 @@ classdef ReactionDiffusion < handle
             fprintf('done\n')
             tic
             fprintf('\tSolving ode system ... ')
-            if numel(obj.Tspan) == 2 
+            if numel(obj.Tspan) == 2
                 obj.odesol = obj.solver(f, obj.Tspan, y0v, obj.odeopts);
                 obj.Tsol = obj.odesol.x;
                 obj.Ysol = obj.odesol.y.';
@@ -142,101 +77,6 @@ classdef ReactionDiffusion < handle
             end
             fprintf('done (elapsed time %.2f seconds)\n', toc)
         end
-        
-        
-        % Specialised setters
-        function set.y0(obj, val)
-            if isnumeric(val)
-                val = num2cell(val);
-            end
-            obj.y0 = val;
-        end
-        function set.diffusion(obj, val)
-            if isnumeric(val)
-                val = num2cell(val);
-            end
-            obj.diffusion = val;
-        end
-        function set.method(obj, val)
-            try
-                assert(ismember(lower(val), {'spectral', 'fd'}));
-            catch
-                error('Invalid discretisation method specified. Must be ''spectral'' or ''fd''');
-            end
-            obj.method = val;
-        end
-        function y = unpack_spectral(obj, yreduced)
-            ncols = size(yreduced, 2);
-            y = zeros(obj.spectral.ntot, ncols);
-            y(obj.spectral.i_map, :) = yreduced;
-            for i = 1:numel(obj.spectral.i_diff)
-                ii = obj.spectral.i_diff(i);
-                
-                y([ii; ii + obj.m*(obj.n-1)], :) = ...
-                    obj.spectral.BC * y(obj.m*(1:(obj.n-2)) + ii, :);
-            end
-        end
-        function Y = soln(obj, idx, t, x)
-            %SOLN Extract solution at specified time and spatial locations
-            if isempty(t)
-                t = obj.Tsol;
-            end
-            if isempty(x)
-                switch obj.method
-                    case 'fd'
-                        x = obj.fd.x;
-                    case 'spectral'
-                        x = obj.spectral.x;
-                end
-            end
-            % Bounds checking
-            if any(t < obj.Tspan(1)) || any(t > obj.Tspan(end))
-                error('Rdsolve:t_out_of_range', ...
-                    'specified t values outside of simulation range');
-            end
-            if any(x < obj.xlim(1)) || any(x > obj.xlim(end))
-                error('Rdsolve:x_out_of_range', ...
-                    'specified x values outside of simulation range');
-            end
-            
-            % Get solutions at node points at each time value
-            if ~isempty(obj.odesol)
-                Y = deval(obj.odesol, t);
-            else
-                % Check to see if the times are actually simulation values
-                [tf, loc] = ismember(t, obj.Tspan);
-                % If not, interpolate
-                if all(tf)
-                    Y = obj.Ysol(loc, :).';
-                else
-                    Y = obj.Ysol.';
-                    Y = spline(obj.Tsol, Y, t);
-                end
-            end
-            
-            % Fill out boundary conditions if using spectral method
-            if isequal(obj.method, 'spectral')
-                Y = obj.unpack_spectral(Y);
-            end
-            % Extract the variable out that we need
-            Y = Y(idx:obj.m:end, :);
-            
-            % Now spatial interpolation
-            switch obj.method
-                case 'fd'
-                    xs = obj.fd.x;
-                case 'spectral'
-                    xs = obj.spectral.x;
-            end
-            [tf, loc] = ismember(x, xs);
-            if all(tf)
-                Y = Y(loc, :);
-            else
-                Y = spline(xs, Y.', x).';
-            end       
-            
-        end
-        
         function varargout = image(obj, idx)
             %IMAGE   Display an image of one variable of the simulation
             %
@@ -274,7 +114,7 @@ classdef ReactionDiffusion < handle
                 end
             end
             Y = obj.soln(idx, T, x);
-                        
+            
             hI = imagesc(T, x, Y);
             colormap(hot(16384));
             axis tight
@@ -294,7 +134,7 @@ classdef ReactionDiffusion < handle
                 case 2
                     varargout = {hI, Y};
             end
-                    
+            
         end
         function animate(obj, idx)
             %ANIMATE    Perform an animation of a solution
@@ -366,11 +206,170 @@ classdef ReactionDiffusion < handle
                 pause(dt - toc);
             end
         end
-        
+        function Y = soln(obj, idx, t, x)
+            %SOLN Extract solution at specified time and spatial locations
+            if isempty(t)
+                t = obj.Tsol;
+            end
+            if isempty(x)
+                switch obj.method
+                    case 'fd'
+                        x = obj.fd.x;
+                    case 'spectral'
+                        x = obj.spectral.x;
+                end
+            end
+            % Bounds checking
+            if any(t < obj.Tspan(1)) || any(t > obj.Tspan(end))
+                error('Rdsolve:t_out_of_range', ...
+                    'specified t values outside of simulation range');
+            end
+            if any(x < obj.xlim(1)) || any(x > obj.xlim(end))
+                error('Rdsolve:x_out_of_range', ...
+                    'specified x values outside of simulation range');
+            end
+            
+            % Get solutions at node points at each time value
+            if ~isempty(obj.odesol)
+                Y = deval(obj.odesol, t);
+            else
+                % Check to see if the times are actually simulation values
+                [tf, loc] = ismember(t, obj.Tspan);
+                % If not, interpolate
+                if all(tf)
+                    Y = obj.Ysol(loc, :).';
+                else
+                    Y = obj.Ysol.';
+                    Y = spline(obj.Tsol, Y, t);
+                end
+            end
+            
+            % Fill out boundary conditions if using spectral method
+            if isequal(obj.method, 'spectral')
+                Y = obj.unpack_spectral(Y);
+            end
+            % Extract the variable out that we need
+            Y = Y(idx:obj.m:end, :);
+            
+            % Now spatial interpolation
+            switch obj.method
+                case 'fd'
+                    xs = obj.fd.x;
+                case 'spectral'
+                    xs = obj.spectral.x;
+            end
+            [tf, loc] = ismember(x, xs);
+            if all(tf)
+                Y = Y(loc, :);
+            else
+                Y = spline(xs, Y.', x).';
+            end
+            
+        end
+     
+        function y = unpack_spectral(obj, yreduced)
+            ncols = size(yreduced, 2);
+            y = zeros(obj.spectral.ntot, ncols);
+            y(obj.spectral.i_map, :) = yreduced;
+            for i = 1:numel(obj.spectral.i_diff)
+                ii = obj.spectral.i_diff(i);
+                
+                y([ii; ii + obj.m*(obj.n-1)], :) = ...
+                    obj.spectral.BC * y(obj.m*(1:(obj.n-2)) + ii, :);
+            end
+        end
+        function set.diffusion(obj, val)
+            if isnumeric(val)
+                val = num2cell(val);
+            end
+            obj.diffusion = val;
+        end
+        function set.method(obj, val)
+            try
+                assert(ismember(lower(val), {'spectral', 'fd'}));
+            catch err
+                error('MATLAB:ReactionDiffusion:invalidMethod', ...
+                    'Invalid discretisation method specified. Must be ''spectral'' or ''fd''');
+            end
+            obj.method = val;
+        end
+        function set.y0(obj, val)
+            if isnumeric(val)
+                val = num2cell(val);
+            end
+            obj.y0 = val;
+        end
+ 
     end
     
     
     methods (Access = protected)
+        function init_spectral(obj)
+            % compute discretisation etc for spectral method
+            N = obj.n - 1;
+            [obj.spectral.D1, obj.spectral.x] = cheb(N);
+            obj.spectral.x = obj.spectral.x(:).';
+            obj.spectral.D2 = obj.spectral.D1^2;
+            obj.spectral.BC = -obj.spectral.D1([1 N+1], [1 N+1]) \ ...
+                obj.spectral.D1([1 N+1], 2:N);
+            obj.m = numel(obj.diffusion);
+            
+            Dop = cell(obj.m, 1);
+            is_diff = false(obj.m, 1);
+            for i = 1:obj.m
+                if ~isnumeric(obj.diffusion{i})
+                    a = obj.diffusion{i}(obj.spectral.x);
+                    Dop{i} = obj.spectral.D1 * diag(a) * obj.spectral.D1;
+                    is_diff(i) = true;
+                else
+                    a = obj.diffusion{i};
+                    Dop{i} = a * obj.spectral.D2;
+                    if any(a)
+                        is_diff(i) = true;
+                    end
+                end
+            end
+            obj.spectral.i_diff = find(is_diff);
+            I = 1:(obj.m * obj.n);
+            J = reshape(I, obj.n, obj.m)';
+            J = J(:);
+            Q = sparse(I, J, 1., obj.m*obj.n, ...
+                obj.m*obj.n);
+            obj.spectral.D = Q * blkdiag(Dop{:}) * Q.';
+            
+            obj.spectral.i_map = setdiff(1:obj.m*obj.n, ...
+                [obj.spectral.i_diff;
+                obj.m*(obj.n-1) + obj.spectral.i_diff]);
+            obj.spectral.ntot = obj.m * obj.n;
+            obj.spectral.y = zeros(obj.spectral.ntot, 1);
+            
+            
+        end
+        function init_fd(obj)
+            % compute discretisation etc for fd method
+            obj.fd.x  = linspace(obj.xlim(1), obj.xlim(2), obj.n);
+            obj.fd.h  = (obj.xlim(2) - obj.xlim(1)) / (obj.n - 1);
+            obj.fd.xa = [obj.xlim(1) - obj.fd.h/2, obj.fd.x + obj.fd.h/2];
+            obj.m     = numel(obj.diffusion);
+            obj.n     = numel(obj.fd.x);
+            
+            % Now construct the diffusion operator block by block
+            Dop = cell(obj.m, 1);
+            for i = 1:obj.m
+                if ~isnumeric(obj.diffusion{i})
+                    a = obj.diffusion{i}(obj.fd.xa); % if it is a function handle
+                else
+                    a = obj.diffusion{i};
+                end
+                Dop{i} = diffop(obj.n, obj.fd.h, a, obj.boundary);
+            end
+            % Compute permutation matrix to get localised ordering
+            I = 1:(obj.m*obj.n);
+            J = reshape(I, obj.n, obj.m)';
+            J = J(:);
+            Q = sparse(I, J, 1., obj.m*obj.n, obj.m*obj.n);
+            obj.fd.D = Q * blkdiag(Dop{:}) * Q.';
+        end
         function dy = rhs_spectral(obj, t, yreduced)
             y = obj.unpack_spectral(yreduced);
             dy = obj.kinetics_fcn(t, obj.spectral.x, ...
@@ -401,7 +400,6 @@ classdef ReactionDiffusion < handle
                 y0 = y0(obj.spectral.i_map);
             end
         end
-        
         function J = compute_jpattern(obj)
             C = repmat({spones(ones(obj.m))}, obj.n, 1);
             J = spones(spones(obj.fd.D) + blkdiag(C{:}));

@@ -1,8 +1,24 @@
 function [fk, varnames, xlim, y0] = ermentrout(varargin)
-%ERMENTROUT: Set up Ermentrout reaction diffusion kinetics function
+%ERMENTROUT: Set up Ermentrout reaction diffusion kinetics function to use
+%with ReactionDiffusion.
+%
+%    [F, VARNAMES, XLIM, Y0] = ERMENTROUT(param1, val1, ...)
+%        Construct spatially dependent kinetics function
+%        
+%        F: function handle of the form dy = f(t, x, y) which can accept
+%        vectorised x and y input. When evaluating multiple right hand
+%        sides, Y is a matrix that has one column per spatial point in X
+%
+%        VARNAMES: A cell array of strings naming each variable. These can
+%        be used in REACTIONDIFFUSION for plot labels, etc.
+%
+%        XLIM: Two-element vector of x limits
+%
+%        Y0: A vector of appropriate initial conditions
+
 p = inputParser();
 p.addParamValue('v1fun', @(x) repmat(-22.5e-3, size(x))); 
-p.addParamValue('xlim', [0 1]);
+p.addParamValue('xlim', [-1 1]);
 p.parse(varargin{:});
 fv1 = p.Results.v1fun;
 % Parameters
