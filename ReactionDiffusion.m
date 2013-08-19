@@ -60,7 +60,10 @@ classdef ReactionDiffusion < handle
                     f = @(t, y) obj.rhs_fd(t, y);
                 case 'spectral'
                     obj.init_spectral();
+                    obj.JPattern = [];
+                    obj.odeopts = odeset(obj.odeopts, 'JPattern', obj.JPattern);
                     f = @(t, y) obj.rhs_spectral(t, y);
+                    
             end
             y0v = obj.y0vals();
             fprintf('done\n')
@@ -94,8 +97,6 @@ classdef ReactionDiffusion < handle
                 T = linspace(obj.Tspan(1), obj.Tspan(2), nt);
             else
                 nt = numel(obj.Tspan);
-                warning('Rdsolve:ignore_nt', ...
-                    'Ignoring specified image_nt value, using number of elements in Tspan instead');
                 T = obj.Tspan;
             end
             % Fill in missing entries if we're using spectral method
