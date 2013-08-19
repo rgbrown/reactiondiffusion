@@ -1,0 +1,420 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>REACTION DIFFUSION DEMONSTRATION</title><meta name="generator" content="MATLAB 7.14"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2013-08-19"><meta name="DC.source" content="examples.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, tt, code { font-size:12px; }
+pre { margin:0px 0px 20px; }
+pre.error { color:red; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+
+  </style></head><body><div class="content"><h1>REACTION DIFFUSION DEMONSTRATION</h1><!--introduction--><p>This script illustrates the capabilities and different uses of the ReactionDiffusion Solver in three examples.</p><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Example 1: The Brusselator</a></li><li><a href="#13">Example 2: Ermentrout model</a></li><li><a href="#23">Example 3: Variable diffusion coefficient - FKPP equation</a></li></ul></div><h2>Example 1: The Brusselator<a name="1"></a></h2><p>The Brusselator is a simple PDE system that is capable of exhibiting some fairly complex behaviours. We use the following PDE description which allows spatially varying parameters <img src="examples_eq37020.png" alt="$a(x)$"> and <img src="examples_eq00431.png" alt="$b(x)$"></p><p><img src="examples_eq73227.png" alt="$\phi_t = D_\phi \phi_{xx} + a(x) + \phi^2\psi - (b(x) + 1)\phi$"></p><p><img src="examples_eq34901.png" alt="$\psi_t = D_\psi \psi_{xx} + b(x)\phi - \phi^2 \psi$"></p><p>First specify the problem domain. Just the boundaries, not the internal mesh points.</p><pre class="codeinput">xlim = [-1 1];
+</pre><p>Now specify the parameters. We'll make b our spatially varying parameter. The best way to do this is to make it a function of x using anonymous functions</p><pre class="codeinput">a = 1;
+b = @(x) 2-x;
+x = linspace(xlim(1), xlim(end), 200);
+plot(x, b(x)); xlabel(<span class="string">'x'</span>); ylabel(<span class="string">'b(x)'</span>);
+</pre><img vspace="5" hspace="5" src="examples_01.png" alt=""> <p>Now we'll define the kinetics. The Brusselator is simple enough that you can just use an anonymous function. For a more complex problem you'd write an m file whose signature is of the form</p><pre>    |function f = mykinetics(t, x, y)|</pre><p>The kinetics can be space and time-varying</p><pre class="codeinput">f = @(~, x, y) <span class="keyword">...</span>
+    [a + y(1, :).^2 .* y(2, :) - (b(x) + 1) .* y(1, :);
+    b(x) .* y(1, :) - y(1, :).^2 .* y(2, :)];
+</pre><p>A couple of extra things</p><pre class="codeinput">varnames = {<span class="string">'\phi'</span>, <span class="string">'\psi'</span>}; <span class="comment">% only need these to make graphs look nice</span>
+diffusion = {1e-3, 0};
+</pre><p>define some initial conditions as functions of x. We'll set the initial <img src="examples_eq26509.png" alt="$\phi$"> to be 1, and <img src="examples_eq46646.png" alt="$\psi$"> to be sinusoidal</p><pre class="codeinput">y0 = {1, @(x) b(x) + 0.2 * sin(4*pi*x)};
+</pre><p>Now we'll create our reaction-diffusion system, using a spectral method</p><pre class="codeinput">sim = ReactionDiffusion(<span class="string">'kinetics_fcn'</span>, f, <span class="keyword">...</span>
+    <span class="string">'diffusion'</span>, diffusion, <span class="keyword">...</span>
+    <span class="string">'n'</span>, 20, <span class="keyword">...</span>
+    <span class="string">'xlim'</span>, xlim, <span class="keyword">...</span>
+    <span class="string">'y0'</span>, y0, <span class="keyword">...</span>
+    <span class="string">'varnames'</span>, varnames, <span class="keyword">...</span>
+    <span class="string">'Tspan'</span>, [0 10], <span class="keyword">...</span>
+    <span class="string">'method'</span>, <span class="string">'spectral'</span>);
+</pre><p>simulation simply involves calling the 'simulate' method. You need to do this again every time you adjust a setting or parameter.</p><pre class="codeinput">sim.simulate()
+</pre><pre class="codeoutput">	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 0.13 seconds)
+</pre><p>Let's plot the results of the first variable, <img src="examples_eq35435.png" alt="$u$">.</p><pre class="codeinput">figure(1)
+sim.image(1); <span class="comment">% Display the first variable in image form</span>
+</pre><img vspace="5" hspace="5" src="examples_02.png" alt=""> <p>Hmmm, looks like we didn't simulate for long enough, and could use better resolution. Let's try again</p><pre class="codeinput">sim.Tspan = [0 40];
+sim.n = 200;
+sim.simulate();
+figure(2)
+sim.image(2);
+</pre><pre class="codeoutput">	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 3.63 seconds)
+</pre><img vspace="5" hspace="5" src="examples_03.png" alt=""> <p>Sometimes it's better to look at a movie than at a picture. (you need to run the code not look at the static HTML page to see this)</p><pre class="codeinput">figure(3)
+sim.animation_speedup = 5; <span class="comment">% speed up simulation time by a factor 2 in real time</span>
+sim.animate(); <span class="comment">% Animate both variables together. Could also do e.g.</span>
+<span class="comment">% sim.animate(1); % to animate the first one</span>
+</pre><img vspace="5" hspace="5" src="examples_04.png" alt=""> <p>Let's put diffusion on \psi instead. These solutions don't actually exist we think - the problem blows up, but if using finite differences the spikes remain finite. So, let's switch to a 2nd order finite difference discretisation with 1000 mesh points and see what happens</p><pre class="codeinput">figure(4)
+sim.method = <span class="string">'fd'</span>;
+sim.n = 1000;
+sim.diffusion{1} = 0;
+sim.diffusion{2} = 1e-4;
+sim.simulate();
+sim.image(1);
+</pre><pre class="codeoutput">	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 11.78 seconds)
+</pre><img vspace="5" hspace="5" src="examples_05.png" alt=""> <p>Now let's do an exercise to show visually that our method converges with fine enough discretisation - we'll return to the Chebyshev spectral method</p><pre class="codeinput">sim.Tspan = [0 10];
+sim.diffusion = {1e-2, 0};
+sim.method = <span class="string">'spectral'</span>;
+sim.n = 10;
+sim.simulate();
+figure(5)
+subplot(2,2,1)
+sim.image(1);
+title(sprintf(<span class="string">'n = %d'</span>, sim.n));
+
+sim.n = 20;
+sim.simulate()
+subplot(2,2,2)
+sim.image(1);
+title(sprintf(<span class="string">'n = %d'</span>, sim.n));
+
+sim.n = 50;
+sim.simulate()
+subplot(2,2,3)
+sim.image(1);
+title(sprintf(<span class="string">'n = %d'</span>, sim.n));
+
+sim.n = 100;
+sim.simulate()
+subplot(2,2,4)
+sim.image(1);
+title(sprintf(<span class="string">'n = %d'</span>, sim.n));
+</pre><pre class="codeoutput">	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 0.09 seconds)
+	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 0.10 seconds)
+	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 0.15 seconds)
+	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 0.26 seconds)
+</pre><img vspace="5" hspace="5" src="examples_06.png" alt=""> <h2>Example 2: Ermentrout model<a name="13"></a></h2><p>This example uses the additional file <tt>ermentrout.m</tt> which contains the model equations and parameters. The function <tt>ermentrout</tt> gives us a handle to the RHS function with everything initalised.</p><p>First, we need to initialise the kinetics. We define a spatially varying v1 parameter for the model.</p><pre class="codeinput">close <span class="string">all</span>
+xlim = [-1 1];
+v1fun = @(x) 5e-3 * (1 + tanh(x/0.25)) - 29.6e-3;
+</pre><p>The function ermentrout provides us with a function handle to simulate the kinetics with, together with a few extra things, like the names of the variables in case you forget which is which</p><pre class="codeinput">[fn, varnames, xlim, y0] = ermentrout(<span class="string">'xlim'</span>, xlim, <span class="string">'v1fun'</span>, v1fun);
+</pre><p>We want to run a simulation where we put a constant diffusion coefficient on the membrane potential equation, and no diffusion on the other variables</p><pre class="codeinput">diffusion = [1e-4, 0, 0];
+</pre><p>We now initialise the Reaction Diffusion simulation. This problem is solved more efficiently by a finite difference method, so we use that on a 2000 point mesh.</p><pre class="codeinput">sim = ReactionDiffusion(<span class="string">'kinetics_fcn'</span>, fn, <span class="keyword">...</span>
+    <span class="string">'xlim'</span>, xlim', <span class="keyword">...</span>
+    <span class="string">'diffusion'</span>, diffusion, <span class="keyword">...</span>
+    <span class="string">'varnames'</span>, varnames, <span class="keyword">...</span>
+    <span class="string">'method'</span>, <span class="string">'fd'</span>, <span class="keyword">...</span>
+    <span class="string">'n'</span>, 2000, <span class="keyword">...</span>
+    <span class="string">'y0'</span>, y0);
+</pre><p>Let's do our first simulation. We provide a set of time values to interpolate the solution onto, simulate, and then plot the membrane potential</p><pre class="codeinput">sim.Tspan = linspace(0, 40, 1000);
+sim.simulate()
+sim.image(1)
+</pre><pre class="codeoutput">	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 21.89 seconds)
+</pre><img vspace="5" hspace="5" src="examples_07.png" alt=""> <p>Plot the time variation of membrane potential at the middle of the domain</p><pre class="codeinput">t = linspace(0, 40, 500);
+y = sim.soln(1, t, 0);
+plot(t, y)
+</pre><img vspace="5" hspace="5" src="examples_08.png" alt=""> <p>Now try increasing the diffusion coefficient</p><pre class="codeinput">sim.diffusion{1} = 1e-3;
+sim.simulate()
+sim.image(1)
+</pre><pre class="codeoutput">	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 19.22 seconds)
+</pre><img vspace="5" hspace="5" src="examples_09.png" alt=""> <p>Now plot the membrane potential at the middle of the grid over time</p><pre class="codeinput">y = sim.soln(1, t, 0);
+plot(t, y);
+</pre><img vspace="5" hspace="5" src="examples_10.png" alt=""> <p>And let's convince ourselves that if we use a different method we still get the same answer</p><pre class="codeinput">sim.method = <span class="string">'fd'</span>; sim.n = 2000;
+sim.simulate();
+sim.image(1)
+</pre><pre class="codeoutput">	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 19.09 seconds)
+</pre><img vspace="5" hspace="5" src="examples_11.png" alt=""> <h2>Example 3: Variable diffusion coefficient - FKPP equation<a name="23"></a></h2><p>In this example we use the Fisher-Kolmogorov-Petrovskii-Piscounov equation to illustrate the use of spatially varying diffusion coefficients</p><p><img src="examples_eq72816.png" alt="$u_t = \partial_x D(x) \partial_x u + u(1 - u)$"></p><p>We define the kinetics using an anonymous function. Note the use of .* as the function must be callable with multiple right hand sides</p><pre class="codeinput">f = @(t, x, y) y .* (1 - y);
+</pre><p>We'll use a comb-like diffusion function for the diffusion coefficient</p><pre class="codeinput">alpha = 15;
+f1 = @(x) exp(-alpha*x.^2);
+d = @(x) 1e-3 - 9.9e-4*f1(mod(5*x + 1, 2) - 1);
+x = linspace(-1, 1, 1000);
+plot(x, d(x));
+xlabel(<span class="string">'x'</span>); ylabel(<span class="string">'D(x)'</span>);
+</pre><img vspace="5" hspace="5" src="examples_12.png" alt=""> <p>We'll start from a smooth initial profile from one side of the domain</p><pre class="codeinput">y0 = @(x) 0.5 * (1 - tanh(200*(x +0.8)));
+plot(x, y0(x));
+xlabel(<span class="string">'x'</span>); ylabel(<span class="string">'u_0(x)'</span>);
+</pre><img vspace="5" hspace="5" src="examples_13.png" alt=""> <p>Now we simply simulate and plot</p><pre class="codeinput">sim = ReactionDiffusion(<span class="string">'kinetics_fcn'</span>, f, <span class="string">'diffusion'</span>, {d}, <span class="keyword">...</span>
+    <span class="string">'method'</span>, <span class="string">'fd'</span>, <span class="string">'n'</span>, 2000, <span class="string">'Tspan'</span>, [0 60]);
+sim.y0 = {y0};
+sim.simulate()
+sim.image(1)
+</pre><pre class="codeoutput">	Computing discretisation ... done
+	Solving ode system ... done (elapsed time 1.22 seconds)
+</pre><img vspace="5" hspace="5" src="examples_14.png" alt=""> <p>Animate the solution (if running this example from within MATLAB)</p><pre class="codeinput">sim.animation_speedup = 6;
+sim.animate()
+</pre><img vspace="5" hspace="5" src="examples_15.png" alt=""> <p class="footer"><br>
+      Published with MATLAB&reg; 7.14<br></p></div><!--
+##### SOURCE BEGIN #####
+%% REACTION DIFFUSION DEMONSTRATION
+% This script illustrates the capabilities and different uses of the
+% ReactionDiffusion Solver in three examples.
+
+%% Example 1: The Brusselator
+% The Brusselator is a simple PDE system that is capable of exhibiting some
+% fairly complex behaviours. We use the following PDE description which
+% allows spatially varying parameters $a(x)$ and $b(x)$
+%
+% $\phi_t = D_\phi \phi_{xx} + a(x) + \phi^2\psi - (b(x) + 1)\phi$
+%
+% $\psi_t = D_\psi \psi_{xx} + b(x)\phi - \phi^2 \psi$
+%  
+% First specify the problem domain. Just the boundaries, not the internal
+% mesh points.
+xlim = [-1 1];
+%%
+% Now specify the parameters. We'll make b our spatially varying parameter.
+% The best way to do this is to make it a function of x using anonymous
+% functions
+a = 1;
+b = @(x) 2-x;
+x = linspace(xlim(1), xlim(end), 200);
+plot(x, b(x)); xlabel('x'); ylabel('b(x)');
+%%
+% Now we'll define the kinetics. The Brusselator is simple enough that you
+% can just use an anonymous function. For a more complex problem you'd
+% write an m file whose signature is of the form
+%
+%      |function f = mykinetics(t, x, y)|
+%
+% The kinetics can be space and time-varying
+f = @(~, x, y) ...
+    [a + y(1, :).^2 .* y(2, :) - (b(x) + 1) .* y(1, :);
+    b(x) .* y(1, :) - y(1, :).^2 .* y(2, :)];
+%%
+% A couple of extra things
+varnames = {'\phi', '\psi'}; % only need these to make graphs look nice
+diffusion = {1e-3, 0};
+
+%%
+% define some initial conditions as functions of x. We'll set the initial
+% $\phi$ to be 1, and $\psi$ to be sinusoidal
+y0 = {1, @(x) b(x) + 0.2 * sin(4*pi*x)}; 
+%% 
+% Now we'll create our reaction-diffusion system, using a spectral method
+sim = ReactionDiffusion('kinetics_fcn', f, ...
+    'diffusion', diffusion, ...
+    'n', 20, ...
+    'xlim', xlim, ...
+    'y0', y0, ...
+    'varnames', varnames, ...
+    'Tspan', [0 10], ...
+    'method', 'spectral');
+
+%% 
+% simulation simply involves calling the 'simulate' method. You need to do
+% this again every time you adjust a setting or parameter.
+sim.simulate()
+
+%% 
+% Let's plot the results of the first variable, $u$.
+figure(1)
+sim.image(1); % Display the first variable in image form
+
+%%
+% Hmmm, looks like we didn't simulate for long enough, and could use better
+% resolution. Let's try again
+sim.Tspan = [0 40];
+sim.n = 200;
+sim.simulate();
+figure(2)
+sim.image(2);
+
+%% 
+% Sometimes it's better to look at a movie than at a picture. (you need to
+% run the code not look at the static HTML page to see this)
+figure(3)
+sim.animation_speedup = 5; % speed up simulation time by a factor 2 in real time
+sim.animate(); % Animate both variables together. Could also do e.g.
+% sim.animate(1); % to animate the first one
+
+%% 
+% Let's put diffusion on \psi instead. These solutions don't actually exist
+% we think - the problem blows up, but if using finite differences the
+% spikes remain finite. So, let's switch to a 2nd order finite difference
+% discretisation with 1000 mesh points and see what happens
+figure(4)
+sim.method = 'fd';
+sim.n = 1000;
+sim.diffusion{1} = 0;
+sim.diffusion{2} = 1e-4;
+sim.simulate();
+sim.image(1);
+
+%%
+% Now let's do an exercise to show visually that our method converges 
+% with fine enough discretisation - we'll return to the Chebyshev spectral method
+sim.Tspan = [0 10];
+sim.diffusion = {1e-2, 0};
+sim.method = 'spectral';
+sim.n = 10;
+sim.simulate();
+figure(5)
+subplot(2,2,1)
+sim.image(1);
+title(sprintf('n = %d', sim.n));
+
+sim.n = 20;
+sim.simulate()
+subplot(2,2,2)
+sim.image(1);
+title(sprintf('n = %d', sim.n));
+
+sim.n = 50;
+sim.simulate()
+subplot(2,2,3)
+sim.image(1);
+title(sprintf('n = %d', sim.n));
+
+sim.n = 100;
+sim.simulate()
+subplot(2,2,4)
+sim.image(1);
+title(sprintf('n = %d', sim.n));
+
+%% Example 2: Ermentrout model
+% This example uses the additional file |ermentrout.m| which contains the
+% model equations and parameters. The function |ermentrout| gives us a
+% handle to the RHS function with everything initalised. 
+
+%%
+% First, we need to initialise the kinetics. We define a spatially varying
+% v1 parameter for the model.
+close all
+xlim = [-1 1];
+v1fun = @(x) 5e-3 * (1 + tanh(x/0.25)) - 29.6e-3;
+%%
+% The function ermentrout provides us with a function handle to simulate
+% the kinetics with, together with a few extra things, like the names of
+% the variables in case you forget which is which
+[fn, varnames, xlim, y0] = ermentrout('xlim', xlim, 'v1fun', v1fun); 
+
+%%
+% We want to run a simulation where we put a constant diffusion coefficient
+% on the membrane potential equation, and no diffusion on the other
+% variables
+diffusion = [1e-4, 0, 0];
+
+%%
+% We now initialise the Reaction Diffusion simulation. This problem is
+% solved more efficiently by a finite difference method, so we use that on
+% a 2000 point mesh.
+sim = ReactionDiffusion('kinetics_fcn', fn, ...
+    'xlim', xlim', ...
+    'diffusion', diffusion, ...
+    'varnames', varnames, ...
+    'method', 'fd', ...
+    'n', 2000, ...
+    'y0', y0);
+
+%%
+% Let's do our first simulation. We provide a set of time values to
+% interpolate the solution onto, simulate, and then plot the membrane
+% potential
+sim.Tspan = linspace(0, 40, 1000);
+sim.simulate()
+sim.image(1)
+%%
+% Plot the time variation of membrane potential at the middle of the domain
+t = linspace(0, 40, 500);
+y = sim.soln(1, t, 0);
+plot(t, y)
+
+%%
+% Now try increasing the diffusion coefficient
+sim.diffusion{1} = 1e-3;
+sim.simulate()
+sim.image(1)
+%%
+% Now plot the membrane potential at the middle of the grid over time
+y = sim.soln(1, t, 0);
+plot(t, y);
+%%
+% And let's convince ourselves that if we use a different method we still
+% get the same answer
+sim.method = 'fd'; sim.n = 2000;
+sim.simulate();
+sim.image(1)
+
+%% Example 3: Variable diffusion coefficient - FKPP equation
+% In this example we use the Fisher-Kolmogorov-Petrovskii-Piscounov
+% equation to illustrate the use of spatially varying diffusion
+% coefficients
+%
+% $u_t = \partial_x D(x) \partial_x u + u(1 - u)$
+%
+% We define the kinetics using an anonymous function. Note the use of .* as
+% the function must be callable with multiple right hand sides
+f = @(t, x, y) y .* (1 - y);
+
+%%
+% We'll use a comb-like diffusion function for the diffusion coefficient
+alpha = 15;
+f1 = @(x) exp(-alpha*x.^2);
+d = @(x) 1e-3 - 9.9e-4*f1(mod(5*x + 1, 2) - 1);
+x = linspace(-1, 1, 1000);
+plot(x, d(x));
+xlabel('x'); ylabel('D(x)');
+
+%% 
+% We'll start from a smooth initial profile from one side of the domain
+y0 = @(x) 0.5 * (1 - tanh(200*(x +0.8)));
+plot(x, y0(x));
+xlabel('x'); ylabel('u_0(x)');
+
+%%
+% Now we simply simulate and plot
+sim = ReactionDiffusion('kinetics_fcn', f, 'diffusion', {d}, ...
+    'method', 'fd', 'n', 2000, 'Tspan', [0 60]);
+sim.y0 = {y0};
+sim.simulate()
+sim.image(1)
+
+%% 
+% Animate the solution (if running this example from within MATLAB)
+sim.animation_speedup = 6;
+sim.animate()
+##### SOURCE END #####
+--></body></html>
