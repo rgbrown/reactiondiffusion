@@ -3,3 +3,4 @@ html/
 design.html
 *.swp
 .idea/
+.ipynb_checkpoints
