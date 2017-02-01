@@ -134,7 +134,8 @@ title(sprintf('n = %d', sim.n));
 % v1 parameter for the model.
 close all
 xlim = [-1 1];
-v1fun = @(x) 5e-3 * (1 + tanh(x/0.25)) - 29.6e-3;
+%v1fun = @(x, t) 5e-3 * (1 + tanh(x/0.25)) - 29.6e-3;
+v1fun = @(x, t) 5e-3 * (1 + tanh((x + 0.8)/0.01)) * (t < 1) + 1e-2*(t >= 1) - 29.6e-3;
 %%
 % The function ermentrout provides us with a function handle to simulate
 % the kinetics with, together with a few extra things, like the names of
@@ -163,7 +164,7 @@ sim = ReactionDiffusion('kinetics_fcn', fn, ...
 % Let's do our first simulation. We provide a set of time values to
 % interpolate the solution onto, simulate, and then plot the membrane
 % potential
-sim.Tspan = linspace(0, 40, 1000);
+sim.Tspan = linspace(0, 200, 10000);
 sim.simulate()
 sim.image(1)
 %%

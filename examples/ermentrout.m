@@ -17,8 +17,8 @@ function [fk, varnames, xlim, y0] = ermentrout(varargin)
 %        Y0: A vector of appropriate initial conditions
 
 p = inputParser();
-p.addParamValue('v1fun', @(x) repmat(-22.5e-3, size(x))); 
-p.addParamValue('xlim', [-1 1]);
+p.addParameter('v1fun', @(x, t) repmat(-22.5e-3, size(x))); 
+p.addParameter('xlim', [-1 1]);
 p.parse(varargin{:});
 fv1 = p.Results.v1fun;
 % Parameters
@@ -59,7 +59,7 @@ xlim = p.Results.xlim;
         
         dy = zeros(size(y));
         
-        v1 = fv1(x);
+        v1 = fv1(x, t);
         
         v3 = -0.5*v5*tanh((ca - Ca3)/Ca4) + v6;
         m_infty = 0.5*(1 + tanh((v - v1)/v2));
